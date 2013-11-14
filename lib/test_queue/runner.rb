@@ -113,7 +113,7 @@ module TestQueue
         puts
         puts "==> Failures"
         puts
-        puts @failures
+        puts @failures.force_encoding("UTF-8")
       end
 
       puts
