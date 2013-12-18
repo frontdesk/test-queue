@@ -11,7 +11,7 @@ end
     define_method('test_sleep') do
       start = Time.now
       sleep(0.25)
-      assert_in_delta Time.now-start, 0.25, 0.02
+      assert_in_delta Time.now-start, 0.25, 0.05
     end
   end)
 end

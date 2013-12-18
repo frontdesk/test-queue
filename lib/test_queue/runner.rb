@@ -1,6 +1,6 @@
 require 'socket'
 require 'fileutils'
-
+require 'redis'
 module TestQueue
   class Worker
     attr_accessor :pid, :status, :output, :stats, :num, :host
@@ -24,11 +24,12 @@ module TestQueue
 
     def initialize(queue, concurrency=nil, socket=nil, relay=nil)
       raise ArgumentError, 'array required' unless Array === queue
+      abort "TEST_QUEUE_REDIS_HOST not set" unless ENV['TEST_QUEUE_REDIS_HOST']
 
       @procline = $0
       @queue = queue
       @suites = queue.inject(Hash.new){ |hash, suite| hash.update suite.to_s => suite }
-
+      
       @workers = {}
       @completed = []
 
@@ -95,7 +96,7 @@ module TestQueue
           summary,
           worker.stats.size,
           worker.end_time - worker.start_time,
-          worker.pid,
+          worker.pid.to_i,
           worker.status.exitstatus,
           worker.host && " on #{worker.host.split('.').first}"
         ]
@@ -132,8 +133,9 @@ module TestQueue
       exit! run_worker(@queue)
     end
 
-    def execute_parallel
+    def execute_parallel      
       start_master
+      load_queue
       spawn_workers
       distribute_queue
     ensure
@@ -149,24 +151,15 @@ module TestQueue
     end
 
     def start_master
+      puts "Starting master"      
+      @redis = Redis.new :host => ENV['TEST_QUEUE_REDIS_HOST'], :port => (ENV['TEST_QUEUE_REDIS_PORT'] || '6379')
+      @redis.auth ENV['TEST_QUEUE_REDIS_PASSWORD'] if ENV['TEST_QUEUE_REDIS_PASSWORD']
       if relay?
         begin
-          sock = connect_to_relay
-          sock.puts("SLAVE #{@concurrency}")
-          sock.close
+          remote_worker_incr @concurrency
         rescue Errno::ECONNREFUSED
           STDERR.puts "*** Unable to connect to relay #{@relay}. Aborting.."
           exit! 1
-        end
-      else
-        if @socket =~ /^(?:(.+):)?(\d+)$/
-          address = $1 || '0.0.0.0'
-          port = $2.to_i
-          @socket = "#$1:#$2"
-          @server = TCPServer.new(address, port)
-        else
-          FileUtils.rm(@socket) if File.exists?(@socket)
-          @server = UNIXServer.new(@socket)
         end
       end
 
@@ -190,8 +183,6 @@ module TestQueue
         num = i+1
 
         pid = fork do
-          @server.close if @server
-
           iterator = Iterator.new(relay?? @relay : @socket, @suites, method(:around_filter))
           after_fork_internal(num, iterator)
           exit! run_worker(iterator) || 0
@@ -205,7 +196,7 @@ module TestQueue
       srand
 
       output = File.open("/tmp/test_queue_worker_#{$$}_output", 'w')
-
+                  
       $stdout.reopen(output)
       $stderr.reopen($stdout)
       $stdout.sync = $stderr.sync = true
@@ -270,32 +261,44 @@ module TestQueue
       puts worker.output if ENV['TEST_QUEUE_VERBOSE']
     end
 
+    def queue_empty?
+      @redis.llen('test-queue:queue') == 0 && @redis.llen('test-queue:workers') == 0
+    end
+    
+    def remote_worker_count
+      @redis.get('test-queue:remote_worker_count').to_i
+    end
+    
+    def remote_worker_incr(count = 1)      
+      c = @redis.incrby 'test-queue:remote_worker_count', count.to_i
+      @redis.set 'log', "count: #{c}"
+    end
+
+    def remote_worker_decr
+      @redis.decr 'test-queue:remote_worker_count'
+    end
+    
+    def load_queue
+      return if relay?
+      @redis.del 'test-queue:remote_worker_count'      
+      @redis.del 'test-queue:queue'      
+      
+      res = @redis.rpush 'test-queue:queue', @queue.map {|q| Marshal.dump(q) }      
+      puts res
+    end
+
     def distribute_queue
       return if relay?
-      remote_workers = 0
-
-      until @queue.empty? && remote_workers == 0
-        if IO.select([@server], nil, nil, 0.1).nil?
-          cleanup_worker(false) # check for worker deaths
-        else
-          sock = @server.accept
-          cmd = sock.gets.strip
-          case cmd
-          when 'POP'
-            data = Marshal.dump(@queue.shift.to_s)
-            sock.write(data)
-          when /^SLAVE (\d+)/
-            num = $1.to_i
-            remote_workers += num
-            STDERR.puts "*** slave connected with additional #{num} workers"
-          when /^WORKER (\d+)/
-            data = sock.read($1.to_i)
-            worker = Marshal.load(data)
-            worker_completed(worker)
-            remote_workers -= 1
-          end
-          sock.close
+      while true
+        data = @redis.lpop('test-queue:workers')
+        if data
+          worker = Marshal.load(data)
+          worker_completed(worker)
         end
+        if queue_empty? && remote_worker_count == 0
+          break
+        end   
+        sleep 1 
       end
     ensure
       stop_master
@@ -316,12 +319,14 @@ module TestQueue
     def relay_to_master(worker)
       worker.host = Socket.gethostname
       data = Marshal.dump(worker)
-
-      sock = connect_to_relay
-      sock.puts("WORKER #{data.bytesize}")
-      sock.write(data)
+      
+      # sock = connect_to_relay
+      # sock.puts("WORKER #{data.bytesize}")
+      # sock.write(data)
+      @redis.rpush "test-queue:workers", data
+      remote_worker_decr            
     ensure
-      sock.close if sock
+      # sock.close if sock
     end
   end
 end
