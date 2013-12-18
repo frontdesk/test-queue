@@ -20,5 +20,7 @@ spec = Gem::Specification.new do |s|
   s.add_development_dependency 'minitest', '~> 4.7.3'
   s.add_development_dependency 'cucumber', '~> 1.3.10'
 
+  s.add_runtime_dependency 'redis', '~> 3.0'
+
   s.files = `git ls-files`.split("\n")
 end
