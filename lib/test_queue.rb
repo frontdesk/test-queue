@@ -4,5 +4,6 @@ if !IO.respond_to?(:binread)
   end
 end
 
+require 'redis/retry'
 require 'test_queue/iterator'
 require 'test_queue/runner'

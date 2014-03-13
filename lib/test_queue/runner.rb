@@ -166,8 +166,12 @@ module TestQueue
 
     def start_master
       puts "Starting master"
-      @redis = Redis.new :host => ENV['TEST_QUEUE_REDIS_HOST'], :port => (ENV['TEST_QUEUE_REDIS_PORT'] || '6379')
-      @redis.auth ENV['TEST_QUEUE_REDIS_PASSWORD'] if ENV['TEST_QUEUE_REDIS_PASSWORD']
+      @redis_proc = Proc.new {
+        r = Redis.new :host => ENV['TEST_QUEUE_REDIS_HOST'], :port => (ENV['TEST_QUEUE_REDIS_PORT'] || '6379')
+        r.auth ENV['TEST_QUEUE_REDIS_PASSWORD'] if ENV['TEST_QUEUE_REDIS_PASSWORD']
+        r
+      }
+      @redis = Redis::Retry.new(:tries => 5, :wait => 5, :redis_proc => @redis_proc)
       if relay?
         begin
           remote_worker_incr @concurrency
@@ -350,8 +354,9 @@ module TestQueue
       # sock.puts("WORKER #{data.bytesize}")
       # sock.write(data)
       @redis.rpush "test-queue:workers", data
-      remote_worker_decr
+
     ensure
+      remote_worker_decr
       # sock.close if sock
     end
   end
