@@ -185,9 +185,9 @@ module TestQueue
     def start_relay
       return unless relay?
 
-      sock = connect_to_relay
-      sock.puts("SLAVE #{@concurrency} #{Socket.gethostname}")
-      sock.close
+      # sock = connect_to_relay
+      # sock.puts("SLAVE #{@concurrency} #{Socket.gethostname}")
+      # sock.close
     rescue Errno::ECONNREFUSED
       STDERR.puts "*** Unable to connect to relay #{@relay}. Aborting.."
       exit! 1
