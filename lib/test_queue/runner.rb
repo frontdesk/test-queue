@@ -37,7 +37,7 @@ module TestQueue
       @procline = $0
       @queue = queue
       @suites = queue.inject(Hash.new){ |hash, suite| hash.update suite.to_s => suite }
-      
+
       @workers = {}
       @completed = []
 
@@ -144,7 +144,7 @@ module TestQueue
       exit! run_worker(@queue)
     end
 
-    def execute_parallel      
+    def execute_parallel
       start_master
       prepare(@concurrency)
       @prepared_time = Time.now
@@ -165,7 +165,7 @@ module TestQueue
     end
 
     def start_master
-      puts "Starting master"      
+      puts "Starting master"
       @redis = Redis.new :host => ENV['TEST_QUEUE_REDIS_HOST'], :port => (ENV['TEST_QUEUE_REDIS_PORT'] || '6379')
       @redis.auth ENV['TEST_QUEUE_REDIS_PASSWORD'] if ENV['TEST_QUEUE_REDIS_PASSWORD']
       if relay?
@@ -221,7 +221,7 @@ module TestQueue
       srand
 
       output = File.open("/tmp/test_queue_worker_#{$$}_output", 'w')
-                  
+
       $stdout.reopen(output)
       $stderr.reopen($stdout)
       $stdout.sync = $stderr.sync = true
@@ -278,7 +278,7 @@ module TestQueue
         ensure
           relay_to_master(worker) if relay?
           worker_completed(worker)
-        end        
+        end
       end
     end
 
@@ -290,12 +290,12 @@ module TestQueue
     def queue_empty?
       @redis.llen('test-queue:queue') == 0 && @redis.llen('test-queue:workers') == 0
     end
-    
+
     def remote_worker_count
       @redis.get('test-queue:remote_worker_count').to_i
     end
-    
-    def remote_worker_incr(count = 1)      
+
+    def remote_worker_incr(count = 1)
       c = @redis.incrby 'test-queue:remote_worker_count', count.to_i
       @redis.set 'log', "count: #{c}"
     end
@@ -303,13 +303,13 @@ module TestQueue
     def remote_worker_decr
       @redis.decr 'test-queue:remote_worker_count'
     end
-    
+
     def load_queue
       return if relay?
-      @redis.del 'test-queue:remote_worker_count'      
-      @redis.del 'test-queue:queue'      
-      
-      res = @redis.rpush 'test-queue:queue', @queue.map {|q| Marshal.dump(q) }      
+      @redis.del 'test-queue:remote_worker_count'
+      @redis.del 'test-queue:queue'
+
+      res = @redis.rpush 'test-queue:queue', @queue.map {|q| Marshal.dump(q) }
       puts res
     end
 
@@ -323,8 +323,8 @@ module TestQueue
         end
         if queue_empty? && remote_worker_count == 0
           break
-        end   
-        sleep 1 
+        end
+        sleep 1
       end
     ensure
       stop_master
@@ -345,12 +345,12 @@ module TestQueue
     def relay_to_master(worker)
       worker.host = Socket.gethostname
       data = Marshal.dump(worker)
-      
+
       # sock = connect_to_relay
       # sock.puts("WORKER #{data.bytesize}")
       # sock.write(data)
       @redis.rpush "test-queue:workers", data
-      remote_worker_decr            
+      remote_worker_decr
     ensure
       # sock.close if sock
     end
