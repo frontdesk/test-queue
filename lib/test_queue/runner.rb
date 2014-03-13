@@ -309,7 +309,7 @@ module TestQueue
       @redis.del 'test-queue:remote_worker_count'
       @redis.del 'test-queue:queue'
 
-      res = @redis.rpush 'test-queue:queue', @queue.map {|q| Marshal.dump(q) }
+      res = @redis.rpush 'test-queue:queue', @queue.map {|q| Marshal.dump(q.to_s) }
       puts res
     end
 
