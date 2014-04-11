@@ -288,7 +288,7 @@ module TestQueue
 
     def worker_completed(worker)
       @completed << worker
-      puts worker.output if ENV['TEST_QUEUE_VERBOSE'] || worker.status.exitstatus != 0
+      puts worker.output.force_encoding("UTF-8") if ENV['TEST_QUEUE_VERBOSE'] || worker.status.exitstatus != 0
     end
 
     def queue_empty?
