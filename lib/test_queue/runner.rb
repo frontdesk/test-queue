@@ -104,7 +104,7 @@ module TestQueue
           worker.summary,
           worker.stats.size,
           worker.end_time - worker.start_time,
-          worker.pid.to_i,
+          worker.pid.try(:to_i),
           worker.status.exitstatus,
           worker.host && " on #{worker.host.split('.').first}"
         ]
