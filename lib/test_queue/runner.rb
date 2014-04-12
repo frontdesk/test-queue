@@ -167,7 +167,7 @@ module TestQueue
     def start_master
       puts "Starting master"
       @redis_proc = Proc.new {
-        r = Redis.new :host => ENV['TEST_QUEUE_REDIS_HOST'], :port => (ENV['TEST_QUEUE_REDIS_PORT'] || '6379'), :timeout => 0
+        r = Redis.new :host => ENV['TEST_QUEUE_REDIS_HOST'], :port => (ENV['TEST_QUEUE_REDIS_PORT'] || '6379')
         r.auth ENV['TEST_QUEUE_REDIS_PASSWORD'] if ENV['TEST_QUEUE_REDIS_PASSWORD']
         r
       }
