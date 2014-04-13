@@ -30,7 +30,7 @@ class MiniTestQueueRunner < MiniTest::Unit
   def record suite, method, assertions, time, error
     @redis ||= Redis.new
     if error
-      @redis.rpush 'test-queue:queue:failures', Marshal.dump(method.to_s)
+      @redis.rpush 'test-queue:queue:failures', Marshal.dump(suite.to_s)
       @redis.publish "test-queue:failure-log", "suite:#{suite}, method:#{method}, assertions:#{assertions}, time:#{time}, error:#{error}"
 
     end

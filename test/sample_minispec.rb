@@ -35,4 +35,10 @@ describe Meme do
     end
   end
 
+  describe "when testing something erroneous" do
+    it "will always error" do
+      errorfunction
+    end
+  end
+
 end

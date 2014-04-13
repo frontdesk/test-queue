@@ -36,7 +36,7 @@ module TestQueue
 
       if rerun = ENV['TEST_QUEUE_RETRY']
         whitelist = Set.new(fetch_and_clear_failed_queue!)
-        queue = queue.select{ |s| failed_queue.include?(s.to_s) }
+        queue = queue.select{ |s| whitelist.include?(s.to_s) }
       else
         fetch_and_clear_failed_queue!
       end
@@ -329,8 +329,7 @@ module TestQueue
       return if relay?
       @redis.del 'test-queue:remote_worker_count'
       @redis.del 'test-queue:queue'
-
-      res = @redis.rpush 'test-queue:queue', @queue.map {|q| Marshal.dump(q.to_s) }
+      res = @redis.rpush 'test-queue:queue', @queue.map {|q| Marshal.dump(q.to_s) } unless @queue.empty?
       puts "Loaded #{res} suites"
     end
 
