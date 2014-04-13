@@ -313,7 +313,7 @@ module TestQueue
     end
 
     def fetch_and_clear_failed_queue!
-      fq = @redis.lrange('test-queue:queue:failures', 0, -1).to_a
+      fq = @redis.lrange('test-queue:queue:failures', 0, -1).map {|s| Marshal.load(s) }
       puts "Retrying #{@redis.llen('test-queue:queue:failures')} suites..."
       @redis.del('test-queue:queue:failures')
       fq
