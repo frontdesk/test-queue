@@ -35,7 +35,10 @@ module TestQueue
       end
 
       if rerun = ENV['TEST_QUEUE_RETRY']
-        queue = fetch_and_clear_failed_queue!
+        whitelist = Set.new(fetch_and_clear_failed_queue!)
+        queue = queue.select{ |s| failed_queue.include?(s.to_s) }
+      else
+        fetch_and_clear_failed_queue!
       end
 
       @procline = $0
@@ -314,6 +317,9 @@ module TestQueue
 
     def fetch_and_clear_failed_queue!
       fq = @redis.lrange('test-queue:queue:failures', 0, -1).map {|s| Marshal.load(s) }
+      puts "----------------------------"
+      p fq
+      puts "----------------------------"
       puts "Retrying #{@redis.llen('test-queue:queue:failures')} suites..."
       @redis.del('test-queue:queue:failures')
       fq
