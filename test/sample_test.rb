@@ -21,3 +21,10 @@ class MiniTestFailure < MiniTest::Unit::TestCase
     assert_equal 0, 1
   end
 end
+
+
+class MiniTestFailureWithError < MiniTest::Unit::TestCase
+  def test_fail
+    assert_equalz 0, 1
+  end
+end

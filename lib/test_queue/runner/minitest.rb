@@ -27,6 +27,17 @@ class MiniTestQueueRunner < MiniTest::Unit
     ret
   end
 
+  def record suite, method, assertions, time, error
+    @redis ||= Redis.new
+    if error
+      @redis.rpush 'test-queue:queue:failures', Marshal.dump(method.to_s)
+      @redis.publish "test-queue:failure-log", "suite:#{suite}, method:#{method}, assertions:#{assertions}, time:#{time}, error:#{error}"
+
+    end
+    super
+  end
+
+
   self.runner = self.new
   self.output = StringIO.new
 end
@@ -46,6 +57,7 @@ module TestQueue
     class MiniTest < Runner
       def initialize
         tests = ::MiniTest::Unit::TestCase.original_test_suites.sort_by{ |s| -(stats[s.to_s] || 0) }
+        @redis = Redis.new
         super(tests)
       end
 

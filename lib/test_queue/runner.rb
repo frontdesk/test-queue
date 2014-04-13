@@ -34,6 +34,10 @@ module TestQueue
         queue.sort_by!{ |s| forced.index(s.to_s) }
       end
 
+      if rerun = ENV['TEST_QUEUE_RETRY']
+        queue = fetch_and_clear_failed_queue!
+      end
+
       @procline = $0
       @queue = queue
       @suites = queue.inject(Hash.new){ |hash, suite| hash.update suite.to_s => suite }
@@ -308,13 +312,20 @@ module TestQueue
       @redis.decr 'test-queue:remote_worker_count'
     end
 
+    def fetch_and_clear_failed_queue!
+      fq = @redis.lrange('test-queue:queue:failures', 0, -1).to_a
+      puts "Retrying #{@redis.llen('test-queue:queue:failures')} suites..."
+      @redis.del('test-queue:queue:failures')
+      fq
+    end
+
     def load_queue
       return if relay?
       @redis.del 'test-queue:remote_worker_count'
       @redis.del 'test-queue:queue'
 
       res = @redis.rpush 'test-queue:queue', @queue.map {|q| Marshal.dump(q.to_s) }
-      puts res
+      puts "Loaded #{res} suites"
     end
 
     def distribute_queue

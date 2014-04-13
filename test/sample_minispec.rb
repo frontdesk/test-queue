@@ -28,4 +28,11 @@ describe Meme do
       @meme.will_it_blend?.wont_match /^no/i
     end
   end
+
+  describe "when testing something futile" do
+    it "will always fail" do
+      assert false, "always fails"
+    end
+  end
+
 end
